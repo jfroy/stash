@@ -16,7 +16,7 @@ import (
 
 type StreamFormat struct {
 	MimeType string
-	Args     func(codec VideoCodec, videoFilter VideoFilter, videoOnly bool) Args
+	Args     func(codec VideoCodec, videoFilter VideoFilter, acodec ProbeAudioCodec) Args
 }
 
 func CodecInit(codec VideoCodec) (args Args) {
@@ -123,13 +123,16 @@ func CodecInit(codec VideoCodec) (args Args) {
 var (
 	StreamTypeMP4 = StreamFormat{
 		MimeType: MimeMp4Video,
-		Args: func(codec VideoCodec, videoFilter VideoFilter, videoOnly bool) (args Args) {
+		Args: func(codec VideoCodec, videoFilter VideoFilter, acodec ProbeAudioCodec) (args Args) {
 			args = CodecInit(codec)
 			args = append(args, "-movflags", "frag_keyframe+empty_moov")
 			args = args.VideoFilter(videoFilter)
-			if videoOnly {
+			switch acodec {
+			case Aac:
+				args = append(args, "-c:a", "copy")
+			case MissingUnsupported:
 				args = args.SkipAudio()
-			} else {
+			default:
 				args = append(args, "-ac", "2")
 			}
 			args = args.Format(FormatMP4)
@@ -138,10 +141,10 @@ var (
 	}
 	StreamTypeWEBM = StreamFormat{
 		MimeType: MimeWebmVideo,
-		Args: func(codec VideoCodec, videoFilter VideoFilter, videoOnly bool) (args Args) {
+		Args: func(codec VideoCodec, videoFilter VideoFilter, acodec ProbeAudioCodec) (args Args) {
 			args = CodecInit(codec)
 			args = args.VideoFilter(videoFilter)
-			if videoOnly {
+			if acodec == MissingUnsupported {
 				args = args.SkipAudio()
 			} else {
 				args = append(args, "-ac", "2")
@@ -152,9 +155,9 @@ var (
 	}
 	StreamTypeMKV = StreamFormat{
 		MimeType: MimeMkvVideo,
-		Args: func(codec VideoCodec, videoFilter VideoFilter, videoOnly bool) (args Args) {
+		Args: func(codec VideoCodec, videoFilter VideoFilter, acodec ProbeAudioCodec) (args Args) {
 			args = CodecInit(codec)
-			if videoOnly {
+			if acodec == MissingUnsupported {
 				args = args.SkipAudio()
 			} else {
 				args = args.AudioCodec(AudioCodecLibOpus)
@@ -235,11 +238,11 @@ func (o TranscodeOptions) makeStreamArgs(sm *StreamManager) Args {
 
 	args = args.Input(o.VideoFile.Path)
 
-	videoOnly := ProbeAudioCodec(o.VideoFile.AudioCodec) == MissingUnsupported
+	acodec := ProbeAudioCodec(o.VideoFile.AudioCodec)
 
 	videoFilter := sm.encoder.hwMaxResFilter(codec, o.VideoFile, maxTranscodeSize, fullhw)
 
-	args = append(args, o.StreamType.Args(codec, videoFilter, videoOnly)...)
+	args = append(args, o.StreamType.Args(codec, videoFilter, acodec)...)
 
 	args = append(args, extraOutputArgs...)
 
