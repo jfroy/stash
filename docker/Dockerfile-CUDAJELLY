@@ -1,0 +1,56 @@
+ARG GITHASH
+ARG STASH_VERSION
+
+# Build Frontend
+FROM --platform=$BUILDPLATFORM node:alpine AS frontend
+RUN apk add --no-cache make git
+## cache node_modules separately
+COPY ./ui/v2.5/package.json ./ui/v2.5/yarn.lock /stash/ui/v2.5/
+WORKDIR /stash
+COPY Makefile /stash/
+COPY ./graphql /stash/graphql/
+COPY ./ui /stash/ui/
+ENV GITHASH=$GITHASH
+ENV STASH_VERSION=$STASH_VERSION
+RUN make pre-ui
+RUN make generate-ui
+RUN BUILD_DATE=$(date +"%Y-%m-%d %H:%M:%S") make ui
+
+# Build Backend
+FROM --platform=$BUILDPLATFORM golang:1.22-bookworm AS backend
+RUN apt update && apt install -y build-essential golang
+WORKDIR /stash
+COPY ./go* ./*.go Makefile gqlgen.yml .gqlgenc.yml /stash/
+COPY ./scripts /stash/scripts/
+COPY ./pkg /stash/pkg/
+COPY ./cmd /stash/cmd
+COPY ./internal /stash/internal
+COPY --from=frontend /stash /stash/
+ENV GITHASH=$GITHASH
+ENV STASH_VERSION=$STASH_VERSION
+RUN make generate-backend
+RUN make flags-release flags-pie stash
+
+# ffmpeg from jellyfin
+FROM --platform=$BUILDPLATFORM alpine AS ffmpeg
+ENV FFMPEG_URL=https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v6.0.1-8/jellyfin-ffmpeg6_6.0.1-8-jammy_${TARGETARCH}.deb
+RUN apk add --no-cache curl
+RUN curl -sL "${FFMPEG_URL}" -o ffmpeg.deb
+
+# Final Runnable Image
+FROM nvidia/cuda:12.5.0-runtime-ubuntu22.04
+ENV DEBIAN_FRONTEND=noninteractive
+COPY --from=backend /stash/stash /usr/bin/
+COPY --from=ffmpeg /ffmpeg.deb /run/ffmpeg.deb
+RUN dpkg -i /run/ffmpeg.deb || true
+RUN apt-get update \
+    && apt-get -y install --fix-broken \
+    && apt-get -y install python3 python3-pip python-is-python3 \
+    && rm -rf /var/lib/apt/lists/* /var/cache/*
+RUN pip install stashapp-tools
+ENV LANG C.UTF-8
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+ENV PATH="$PATH:/usr/lib/jellyfin-ffmpeg"
+ENV STASH_CONFIG_FILE=/root/.stash/config.yml
+EXPOSE 9999
+ENTRYPOINT ["/usr/bin/stash"]
