@@ -2,7 +2,7 @@ name: package
 on:
   push:
     tags:
-      - v*
+      - v*-cudajellyfin*
 permissions:
   attestations: write
   contents: read
