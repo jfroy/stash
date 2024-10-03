@@ -34,10 +34,11 @@ RUN make generate-backend
 RUN make flags-release flags-pie stash
 
 # ffmpeg from jellyfin
-FROM --platform=$BUILDPLATFORM alpine AS ffmpeg
+FROM --platform=$BUILDPLATFORM alpine:3.20 AS ffmpeg
+ARG TARGETARCH
 WORKDIR /
 RUN apk add --no-cache curl
-RUN curl -sL "https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v6.0.1-8/jellyfin-ffmpeg6_6.0.1-8-jammy_${TARGETARCH}.deb" -o ffmpeg.deb
+RUN curl -fsL "https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v6.0.1-8/jellyfin-ffmpeg6_6.0.1-8-jammy_${TARGETARCH}.deb" -o ffmpeg.deb
 
 # Runtime
 FROM nvidia/cuda:12.5.0-runtime-ubuntu22.04
