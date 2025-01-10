@@ -1,8 +1,9 @@
 # Frontend
-FROM --platform=$BUILDPLATFORM node:alpine AS frontend
+FROM --platform=$BUILDPLATFORM node:23-bookworm-slim AS frontend
 
-ARG GITHASH
-ARG STASH_VERSION
+ARG DEBIAN_FRONTEND=noninteractive \
+    GITHASH \
+    STASH_VERSION 
 WORKDIR /stash
 
 COPY ./ui/v2.5/package.json ./ui/v2.5/yarn.lock /stash/ui/v2.5/
@@ -10,16 +11,17 @@ COPY ./ui /stash/ui/
 COPY ./graphql /stash/graphql/
 COPY Makefile /stash/
 
-RUN apk add --no-cache make git
+RUN apt-get update && apt-get install -y  make git
 RUN make pre-ui
 RUN make generate-ui
 RUN BUILD_DATE=$(date +"%Y-%m-%d %H:%M:%S") make ui
 
 # Backend
-FROM --platform=$BUILDPLATFORM golang:1.22-bookworm AS backend
+FROM --platform=$BUILDPLATFORM golang:1.23-bookworm AS backend
 
-ARG GITHASH
-ARG STASH_VERSION
+ARG DEBIAN_FRONTEND=noninteractive \
+    GITHASH \
+    STASH_VERSION 
 WORKDIR /stash
 
 COPY ./go* ./*.go Makefile gqlgen.yml .gqlgenc.yml /stash/
@@ -29,27 +31,28 @@ COPY ./cmd /stash/cmd
 COPY ./internal /stash/internal
 COPY --from=frontend /stash /stash/
 
-RUN apt update && apt install -y build-essential golang
+RUN apt-get update && apt-get install -y build-essential golang
 RUN make generate-backend
 RUN make flags-release flags-pie stash
 
 # ffmpeg from jellyfin
-FROM --platform=$BUILDPLATFORM alpine:3.20 AS ffmpeg
-ARG TARGETARCH
+FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS ffmpeg
+
+ARG DEBIAN_FRONTEND=noninteractive \
+    GITHASH \
+    STASH_VERSION \
+    TARGETARCH
 WORKDIR /
-RUN apk add --no-cache curl
-RUN curl -fsL "https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v6.0.1-8/jellyfin-ffmpeg6_6.0.1-8-jammy_${TARGETARCH}.deb" -o ffmpeg.deb
+
+RUN apt update && apt install -y curl
+RUN curl -fsL "https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v7.0.2-8/jellyfin-ffmpeg7_7.0.2-8-noble_${TARGETARCH}.deb" -o ffmpeg.deb
 
 # Runtime
-FROM nvidia/cuda:12.5.0-runtime-ubuntu22.04
+FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
 
 ARG DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_ROOT_USER_ACTION=ignore \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_BREAK_SYSTEM_PACKAGES=1
 WORKDIR /
 
 COPY --from=backend /stash/stash /usr/bin/
@@ -59,12 +62,10 @@ RUN (dpkg -i /run/ffmpeg.deb || true) \
     && apt-get update \
     && apt-get -y install --fix-broken \
     && apt-get -y install python3 python3-pip python-is-python3 \
-    && rm -rf /var/lib/apt/lists/* /var/cache/* /run/ffmpeg.deb
+    && rm -rf /var/lib/apt/lists/* /var/cache/* /run/ffmpeg.deb /usr/lib/python3.12/EXTERNALLY-MANAGED
 RUN pip install uv \
-    && uv pip install --system stashapp-tools
-RUN groupadd -g 1000 ubuntu \
-    && useradd -g 1000 -u 1000 ubuntu \
-    && mkdir -p /config \
+    && uv pip install --system stashapp-tools aiohttp asyncio pydantic
+RUN mkdir -p /config \
     && chown -R 1000:1000 /config
 RUN touch /.dockerenv
 
@@ -72,7 +73,6 @@ ENV LANG=C.UTF-8 \
     NVIDIA_DRIVER_CAPABILITIES=compute,video,utility \
     PATH="$PATH:/usr/lib/jellyfin-ffmpeg" \
     STASH_CONFIG_FILE=/config/config.yml \
-    TZ="Etc/UTC" \
     UMASK="0002"
 USER ubuntu:ubuntu
 WORKDIR /config
