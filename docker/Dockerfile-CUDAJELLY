@@ -29,9 +29,9 @@ COPY ./scripts /stash/scripts/
 COPY ./pkg /stash/pkg/
 COPY ./cmd /stash/cmd
 COPY ./internal /stash/internal
-COPY --from=frontend /stash /stash/
+COPY --from=frontend /stash/ /stash/
 
-RUN apt-get update && apt-get install -y build-essential golang
+RUN apt-get update && apt-get install -y build-essential
 RUN make generate-backend
 RUN make flags-release flags-pie stash
 
