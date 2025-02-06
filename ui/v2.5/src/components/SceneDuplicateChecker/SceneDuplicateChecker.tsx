@@ -305,6 +305,25 @@ export const SceneDuplicateChecker: React.FC = () => {
     setCheckedScenes(checkedArray);
   };
 
+  const onSelectByCodec = (codec: string) => {
+    setSelectedScenes([]);
+
+    const checkedArray: Record<string, boolean> = {};
+
+    filteredScenes.forEach((group: any[]) => {
+      if (checkSameCodec(group)) {
+        return;
+      }
+      group.forEach((scene) => {
+        if (scene.files[0]?.video_codec === codec) {
+          checkedArray[scene.id] = true;
+        }
+      });
+    });
+
+    setCheckedScenes(checkedArray);
+  };
+
   const handleCheck = (checked: boolean, sceneID: string) => {
     setCheckedScenes({ ...checkedScenes, [sceneID]: checked });
   };
@@ -774,6 +793,14 @@ export const SceneDuplicateChecker: React.FC = () => {
                       {intl.formatMessage({
                         id: "dupe_check.select_youngest",
                       })}
+                    </Dropdown.Item>
+
+                    <Dropdown.Item onClick={() => onSelectByCodec("h264")}>
+                      h264
+                    </Dropdown.Item>
+
+                    <Dropdown.Item onClick={() => onSelectByCodec("hevc")}>
+                      hevc
                     </Dropdown.Item>
                   </Dropdown.Menu>
                 </Dropdown>
