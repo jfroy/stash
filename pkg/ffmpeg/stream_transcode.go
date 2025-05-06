@@ -43,21 +43,14 @@ func CodecInit(codec VideoCodec) (args Args) {
 	// HW Codecs
 	case VideoCodecN264:
 		args = append(args,
-			// https://docs.nvidia.com/video-technologies/video-codec-sdk/12.0/ffmpeg-with-nvidia-gpu/index.html#command-line-for-low-latency-transcoding
-			// ffmpeg -y -vsync 0 -hwaccel cuda -hwaccel_output_format cuda -i input.mp4 -c:a copy -c:v h264_nvenc -preset p6 -tune ll -b:v 5M -bufsize 5M -maxrate 10M -qmin 0 -g 250 -bf 3 -b_ref_mode middle -temporal-aq 1 -rc-lookahead 20 -i_qfactor 0.75 -b_qfactor 1.1 output.mp4
+			// https://docs.nvidia.com/video-technologies/video-codec-sdk/13.0/ffmpeg-with-nvidia-gpu/index.html#command-line-for-low-latency-transcoding
+			// ffmpeg -y -vsync 0 -hwaccel cuda -hwaccel_output_format cuda -i input.mp4 -c:a copy -c:v h264_nvenc -preset p6 -tune ll -b:v 5M -bufsize 167K -maxrate 10M -qmin 0 output.mp4
 			"-preset", "p6",
 			"-tune", "ll",
-			"-b:v", "10M",
-			"-bufsize", "5M",
-			"-maxrate", "15M",
+			"-b:v", "5M",
+			"-bufsize", "167K",
+			"-maxrate", "10M",
 			"-qmin", "0",
-			"-g", "250",
-			"-bf", "3",
-			"-b_ref_mode", "middle",
-			"-temporal-aq", "1",
-			"-rc-lookahead", "20",
-			"-i_qfactor", "0.75",
-			"-b_qfactor", "1.1",
 			"-fps_mode", "passthrough",
 		)
 	case VideoCodecN264H:
