@@ -17,7 +17,7 @@ RUN make generate-ui
 RUN BUILD_DATE=$(date +"%Y-%m-%d %H:%M:%S") make ui
 
 # Backend
-FROM --platform=$BUILDPLATFORM golang:1.23-bookworm AS backend
+FROM --platform=$BUILDPLATFORM golang:1.24-bookworm AS backend
 
 ARG DEBIAN_FRONTEND=noninteractive \
     GITHASH \
@@ -45,10 +45,10 @@ ARG DEBIAN_FRONTEND=noninteractive \
 WORKDIR /
 
 RUN apt update && apt install -y curl
-RUN curl -fsL "https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v7.0.2-8/jellyfin-ffmpeg7_7.0.2-8-noble_${TARGETARCH}.deb" -o ffmpeg.deb
+RUN curl -fsL "https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v7.1.1-2/jellyfin-ffmpeg7_7.1.1-2-noble_${TARGETARCH}.deb" -o ffmpeg.deb
 
 # Runtime
-FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
+FROM nvcr.io/nvidia/cuda-dl-base:25.04-cuda12.9-runtime-ubuntu24.04
 
 ARG DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
