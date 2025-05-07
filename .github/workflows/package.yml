@@ -71,10 +71,11 @@ jobs:
 
       - id: digest
         run: |
-          # GHCR_TOKEN=$(echo ${{ secrets.GITHUB_TOKEN }} | base64)
+          GHCR_TOKEN=$(echo ${{ secrets.GITHUB_TOKEN }} | base64)
+          echo "::add-mask::$GHCR_TOKEN"
           DIGEST=$(curl -sI \
             -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Authorization: Bearer $GHCR_TOKEN" \
             https://ghcr.io/v2/${{ github.actor }}/stash/manifests/${{ github.ref_name }} \
             | grep -i Docker-Content-Digest \
             | awk '{print $2}' \
