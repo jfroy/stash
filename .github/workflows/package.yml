@@ -46,6 +46,7 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           file: ./docker/Dockerfile-CUDAJELLY
           platforms: linux/${{ matrix.arch }}
+          provenance: false
           push: true
           tags: ${{ env.IMAGE }}:${{ github.sha }}-${{ matrix.arch }}
 
@@ -73,7 +74,7 @@ jobs:
           DIGEST=$(curl -sI \
             -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
             -u "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
-            https://ghcr.io/v2/${{ github.repository }}/manifests/latest \
+            https://ghcr.io/v2/${{ github.actor }}/stash/manifests/${{ github.ref_name }} \
             | grep -i Docker-Content-Digest \
             | awk '{print $2}' \
             | tr -d '\r')
@@ -81,6 +82,6 @@ jobs:
 
       - uses: actions/attest-build-provenance@v2
         with:
-          subject-name: ${{ env.IMAGE }}
-          subject-digest: ${{ steps.digest.outputs.digest }}
           push-to-registry: true
+          subject-digest: ${{ steps.digest.outputs.digest }}
+          subject-name: ${{ env.IMAGE }}
