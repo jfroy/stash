@@ -7,14 +7,14 @@ ARG DEBIAN_FRONTEND=noninteractive \
 WORKDIR /stash
 
 COPY ./ui/v2.5/package.json ./ui/v2.5/yarn.lock /stash/ui/v2.5/
-COPY ./ui /stash/ui/
-COPY ./graphql /stash/graphql/
 COPY Makefile /stash/
+COPY ./graphql /stash/graphql/
+COPY ./ui /stash/ui/
 
 RUN apt-get update && apt-get install -y  make git
 RUN make pre-ui
 RUN make generate-ui
-RUN BUILD_DATE=$(date +"%Y-%m-%d %H:%M:%S") make ui
+RUN BUILD_DATE=$(date +"%Y-%m-%d %H:%M:%S") make ui-only
 
 # Backend
 FROM --platform=$BUILDPLATFORM golang:1.24-bookworm AS backend
@@ -25,14 +25,17 @@ ARG DEBIAN_FRONTEND=noninteractive \
 WORKDIR /stash
 
 COPY ./go* ./*.go Makefile gqlgen.yml .gqlgenc.yml /stash/
+COPY ./graphql /stash/graphql/
 COPY ./scripts /stash/scripts/
 COPY ./pkg /stash/pkg/
 COPY ./cmd /stash/cmd
 COPY ./internal /stash/internal
-COPY --from=frontend /stash/ /stash/
+# needed for generate-login-locale
+COPY ./ui /stash/ui/
 
 RUN apt-get update && apt-get install -y build-essential
-RUN make generate-backend
+RUN make generate-backend generate-login-locale
+COPY --from=frontend /stash /stash/
 RUN make flags-release flags-pie stash
 
 # ffmpeg from jellyfin
@@ -45,17 +48,17 @@ ARG DEBIAN_FRONTEND=noninteractive \
 WORKDIR /
 
 RUN apt update && apt install -y curl
-RUN curl -fsL "https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v7.1.1-2/jellyfin-ffmpeg7_7.1.1-2-noble_${TARGETARCH}.deb" -o ffmpeg.deb
+RUN curl -fsL "https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v7.1.2-4/jellyfin-ffmpeg7_7.1.2-4-noble_${TARGETARCH}.deb" -o ffmpeg.deb
 
 # Runtime
-FROM nvcr.io/nvidia/cuda-dl-base:25.04-cuda12.9-runtime-ubuntu24.04
+FROM nvcr.io/nvidia/cuda-dl-base:25.11-cuda13.0-runtime-ubuntu24.04
 
 ARG DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
 WORKDIR /
 
-COPY --from=backend /stash/stash /usr/bin/
+COPY --from=backend --chmod=555 /stash/stash /usr/bin/
 COPY --from=ffmpeg /ffmpeg.deb /run/ffmpeg.deb
 
 RUN (dpkg -i /run/ffmpeg.deb || true) \
