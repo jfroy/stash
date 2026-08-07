@@ -14,6 +14,8 @@ fragment SceneData on Scene {
   captions {
     language_code
     caption_type
+    stream_index
+    title
   }
   created_at
   updated_at

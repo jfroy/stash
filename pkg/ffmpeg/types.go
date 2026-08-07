@@ -84,6 +84,7 @@ type FFProbeStream struct {
 		CreationTime json.JSONTime `json:"creation_time"`
 		HandlerName  string        `json:"handler_name"`
 		Language     string        `json:"language"`
+		Title        string        `json:"title"`
 		Rotate       string        `json:"rotate"`
 	} `json:"tags"`
 	TimeBase      string `json:"time_base"`

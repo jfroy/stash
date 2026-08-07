@@ -9,13 +9,16 @@ import (
 	"strings"
 
 	"github.com/asticode/go-astisub"
+	"github.com/stashapp/stash/pkg/ffmpeg"
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/txn"
 	"golang.org/x/text/language"
 )
 
-var CaptionExts = []string{"vtt", "srt"} // in a case where vtt and srt files are both provided prioritize vtt file due to native support
+// CaptionExts contains the sidecar caption formats that can be converted to
+// WebVTT for playback. Keep VTT first because browsers support it natively.
+var CaptionExts = []string{"vtt", "srt", "ass"}
 
 // to be used for captions without a language code in the filename
 // ISO 639-1 uses 2 or 3 a-z chars for codes so 00 is a safe non valid choise
@@ -39,6 +42,96 @@ func GetCaptionPath(path, lang, suffix string) string {
 // ReadSubs reads a captions file
 func ReadSubs(path string) (*astisub.Subtitles, error) {
 	return astisub.OpenFile(path)
+}
+
+// EmbeddedCaptions returns browser-compatible text subtitle streams found by
+// ffprobe. Bitmap subtitle codecs are intentionally excluded because they
+// cannot be converted to WebVTT without OCR.
+func EmbeddedCaptions(streams []ffmpeg.FFProbeStream) []*models.VideoCaption {
+	captionTypes := map[string]string{
+		"ass":    "ass",
+		"ssa":    "ass",
+		"subrip": "srt",
+		"webvtt": "vtt",
+	}
+
+	var ret []*models.VideoCaption
+	for _, stream := range streams {
+		captionType, supported := captionTypes[strings.ToLower(stream.CodecName)]
+		if stream.CodecType != "subtitle" || !supported {
+			continue
+		}
+
+		streamIndex := stream.Index
+		ret = append(ret, &models.VideoCaption{
+			LanguageCode: embeddedCaptionLanguage(stream.Tags.Language),
+			CaptionType:  captionType,
+			StreamIndex:  &streamIndex,
+			Title:        stream.Tags.Title,
+		})
+	}
+
+	return ret
+}
+
+func embeddedCaptionLanguage(code string) string {
+	if code == "" {
+		return LangUnknown
+	}
+
+	base, _ := language.Make(code).Base()
+	if base.String() == "und" {
+		return LangUnknown
+	}
+
+	return base.String()
+}
+
+// ConvertEmbeddedCaption converts a text subtitle stream to WebVTT.
+func ConvertEmbeddedCaption(ctx context.Context, path string, streamIndex int, encoder *ffmpeg.FFMpeg) ([]byte, error) {
+	if streamIndex < 0 {
+		return nil, fmt.Errorf("invalid subtitle stream index %d", streamIndex)
+	}
+	if encoder == nil {
+		return nil, errors.New("ffmpeg not configured")
+	}
+
+	args := []string{
+		"-v", "error",
+		"-i", path,
+		"-map", fmt.Sprintf("0:%d", streamIndex),
+		"-f", "webvtt",
+		"pipe:",
+	}
+	return encoder.GenerateOutput(ctx, args, nil)
+}
+
+// SyncEmbeddedCaptions replaces captions discovered inside the video while
+// preserving sidecar caption records.
+func SyncEmbeddedCaptions(ctx context.Context, f *models.VideoFile, updater CaptionUpdater) error {
+	// Files loaded from the database do not carry ffprobe stream data. Avoid
+	// deleting persisted tracks when an unchanged file handler is run.
+	if !f.EmbeddedCaptionsScanned {
+		return nil
+	}
+
+	captions, err := updater.GetCaptions(ctx, f.ID)
+	if err != nil {
+		return fmt.Errorf("getting captions for file %s: %w", f.Path, err)
+	}
+
+	ret := make([]*models.VideoCaption, 0, len(captions)+len(f.EmbeddedCaptions))
+	for _, caption := range captions {
+		if caption.StreamIndex == nil {
+			ret = append(ret, caption)
+		}
+	}
+	ret = append(ret, f.EmbeddedCaptions...)
+
+	if err := updater.UpdateCaptions(ctx, f.ID, ret); err != nil {
+		return fmt.Errorf("updating embedded captions for file %s: %w", f.Path, err)
+	}
+	return nil
 }
 
 // IsValidLanguage checks whether the given string is a valid
@@ -175,6 +268,11 @@ func CleanCaptions(ctx context.Context, f *models.VideoFile, txnMgr txn.Manager,
 	var newCaptions []*models.VideoCaption
 
 	for _, caption := range captions {
+		if caption.StreamIndex != nil {
+			newCaptions = append(newCaptions, caption)
+			continue
+		}
+
 		captionPath := caption.Path(filePath)
 		_, err := os.Stat(captionPath)
 		if errors.Is(err, os.ErrNotExist) {

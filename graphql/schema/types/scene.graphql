@@ -34,6 +34,8 @@ type SceneGroup {
 type VideoCaption {
   language_code: String!
   caption_type: String!
+  stream_index: Int
+  title: String
 }
 
 type Scene {

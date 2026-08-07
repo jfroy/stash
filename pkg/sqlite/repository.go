@@ -317,14 +317,16 @@ type captionRepository struct {
 }
 
 func (r *captionRepository) get(ctx context.Context, id models.FileID) ([]*models.VideoCaption, error) {
-	query := fmt.Sprintf("SELECT %s, %s, %s from %s WHERE %s = ?", captionCodeColumn, captionFilenameColumn, captionTypeColumn, r.tableName, r.idColumn)
+	query := fmt.Sprintf("SELECT %s, %s, %s, %s, %s from %s WHERE %s = ?", captionCodeColumn, captionFilenameColumn, captionTypeColumn, captionStreamColumn, captionTitleColumn, r.tableName, r.idColumn)
 	var ret []*models.VideoCaption
 	err := r.queryFunc(ctx, query, []interface{}{id}, false, func(rows *sqlx.Rows) error {
 		var captionCode string
 		var captionFilename string
 		var captionType string
+		var streamIndex int
+		var title string
 
-		if err := rows.Scan(&captionCode, &captionFilename, &captionType); err != nil {
+		if err := rows.Scan(&captionCode, &captionFilename, &captionType, &streamIndex, &title); err != nil {
 			return err
 		}
 
@@ -332,6 +334,10 @@ func (r *captionRepository) get(ctx context.Context, id models.FileID) ([]*model
 			LanguageCode: captionCode,
 			Filename:     captionFilename,
 			CaptionType:  captionType,
+			Title:        title,
+		}
+		if streamIndex >= 0 {
+			caption.StreamIndex = &streamIndex
 		}
 		ret = append(ret, caption)
 		return nil
@@ -340,8 +346,13 @@ func (r *captionRepository) get(ctx context.Context, id models.FileID) ([]*model
 }
 
 func (r *captionRepository) insert(ctx context.Context, id models.FileID, caption *models.VideoCaption) (sql.Result, error) {
-	stmt := fmt.Sprintf("INSERT INTO %s (%s, %s, %s, %s) VALUES (?, ?, ?, ?)", r.tableName, r.idColumn, captionCodeColumn, captionFilenameColumn, captionTypeColumn)
-	return dbWrapper.Exec(ctx, stmt, id, caption.LanguageCode, caption.Filename, caption.CaptionType)
+	streamIndex := -1
+	if caption.StreamIndex != nil {
+		streamIndex = *caption.StreamIndex
+	}
+
+	stmt := fmt.Sprintf("INSERT INTO %s (%s, %s, %s, %s, %s, %s) VALUES (?, ?, ?, ?, ?, ?)", r.tableName, r.idColumn, captionCodeColumn, captionFilenameColumn, captionTypeColumn, captionStreamColumn, captionTitleColumn)
+	return dbWrapper.Exec(ctx, stmt, id, caption.LanguageCode, caption.Filename, caption.CaptionType, streamIndex, caption.Title)
 }
 
 func (r *captionRepository) replace(ctx context.Context, id models.FileID, captions []*models.VideoCaption) error {
