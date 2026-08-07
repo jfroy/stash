@@ -26,6 +26,8 @@ const (
 	captionCodeColumn     = "language_code"
 	captionFilenameColumn = "filename"
 	captionTypeColumn     = "caption_type"
+	captionStreamColumn   = "stream_index"
+	captionTitleColumn    = "title"
 )
 
 type basicFileRow struct {

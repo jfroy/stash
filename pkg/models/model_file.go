@@ -289,6 +289,11 @@ type VideoFile struct {
 
 	Interactive      bool `json:"interactive"`
 	InteractiveSpeed *int `json:"interactive_speed"`
+
+	// EmbeddedCaptions is populated by ffprobe while scanning and persisted in
+	// the video_captions table by the scene scan handler.
+	EmbeddedCaptions        []*VideoCaption `json:"-"`
+	EmbeddedCaptionsScanned bool            `json:"-"`
 }
 
 func (f VideoFile) GetWidth() int {

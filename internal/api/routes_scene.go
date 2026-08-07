@@ -405,7 +405,7 @@ func (rs sceneRoutes) InteractiveHeatmap(w http.ResponseWriter, r *http.Request)
 	utils.ServeStaticFile(w, r, filepath)
 }
 
-func (rs sceneRoutes) Caption(w http.ResponseWriter, r *http.Request, lang string, ext string) {
+func (rs sceneRoutes) Caption(w http.ResponseWriter, r *http.Request, lang string, ext string, streamIndex *int) {
 	s := r.Context().Value(sceneKey).(*models.Scene)
 
 	var captions []*models.VideoCaption
@@ -433,26 +433,51 @@ func (rs sceneRoutes) Caption(w http.ResponseWriter, r *http.Request, lang strin
 		if lang != caption.LanguageCode || ext != caption.CaptionType {
 			continue
 		}
-
-		sub, err := video.ReadSubs(caption.Path(s.Path))
-		if err != nil {
-			logger.Warnf("error while reading subs: %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+		if streamIndex == nil {
+			if caption.StreamIndex != nil {
+				continue
+			}
+		} else if caption.StreamIndex == nil || *streamIndex != *caption.StreamIndex {
+			continue
 		}
 
-		var buf bytes.Buffer
+		var contents []byte
+		if caption.StreamIndex != nil {
+			encoder := manager.GetInstance().FFMpeg
+			if encoder == nil {
+				http.Error(w, "ffmpeg not configured", http.StatusInternalServerError)
+				return
+			}
 
-		err = sub.WriteToWebVTT(&buf)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			var err error
+			contents, err = video.ConvertEmbeddedCaption(r.Context(), s.Path, *caption.StreamIndex, encoder)
+			if err != nil {
+				logger.Warnf("error while converting embedded subtitles: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		} else {
+			sub, err := video.ReadSubs(caption.Path(s.Path))
+			if err != nil {
+				logger.Warnf("error while reading subs: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			var buf bytes.Buffer
+			if err = sub.WriteToWebVTT(&buf); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			contents = buf.Bytes()
 		}
 
 		w.Header().Set("Content-Type", "text/vtt")
-		utils.ServeStaticContent(w, r, buf.Bytes())
+		utils.ServeStaticContent(w, r, contents)
 		return
 	}
+
+	http.NotFound(w, r)
 }
 
 func (rs sceneRoutes) CaptionLang(w http.ResponseWriter, r *http.Request) {
@@ -463,7 +488,18 @@ func (rs sceneRoutes) CaptionLang(w http.ResponseWriter, r *http.Request) {
 
 	l := r.Form.Get("lang")
 	ext := r.Form.Get("type")
-	rs.Caption(w, r, l, ext)
+
+	var streamIndex *int
+	if value := r.Form.Get("stream"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 0 {
+			http.Error(w, "invalid subtitle stream index", http.StatusBadRequest)
+			return
+		}
+		streamIndex = &parsed
+	}
+
+	rs.Caption(w, r, l, ext, streamIndex)
 }
 
 func (rs sceneRoutes) SceneMarkerStream(w http.ResponseWriter, r *http.Request) {

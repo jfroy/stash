@@ -37,6 +37,11 @@ func (d *Decorator) Decorate(ctx context.Context, fs models.FS, f models.File) (
 		return f, fmt.Errorf("matching container for %q: %w", base.Path, err)
 	}
 
+	var embeddedCaptions []*models.VideoCaption
+	if container == ffmpeg.Matroska {
+		embeddedCaptions = EmbeddedCaptions(videoFile.JSON.Streams)
+	}
+
 	// check if there is a funscript file
 	interactive := false
 	if _, err := fs.Lstat(GetFunscriptPath(base.Path)); err == nil {
@@ -44,16 +49,18 @@ func (d *Decorator) Decorate(ctx context.Context, fs models.FS, f models.File) (
 	}
 
 	return &models.VideoFile{
-		BaseFile:    base,
-		Format:      string(container),
-		VideoCodec:  videoFile.VideoCodec,
-		AudioCodec:  videoFile.AudioCodec,
-		Width:       videoFile.Width,
-		Height:      videoFile.Height,
-		Duration:    videoFile.FileDuration,
-		FrameRate:   videoFile.FrameRate,
-		BitRate:     videoFile.Bitrate,
-		Interactive: interactive,
+		BaseFile:                base,
+		Format:                  string(container),
+		VideoCodec:              videoFile.VideoCodec,
+		AudioCodec:              videoFile.AudioCodec,
+		Width:                   videoFile.Width,
+		Height:                  videoFile.Height,
+		Duration:                videoFile.FileDuration,
+		FrameRate:               videoFile.FrameRate,
+		BitRate:                 videoFile.Bitrate,
+		Interactive:             interactive,
+		EmbeddedCaptions:        embeddedCaptions,
+		EmbeddedCaptionsScanned: true,
 	}, nil
 }
 
