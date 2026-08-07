@@ -1,0 +1,130 @@
+.bulk-transcode-page {
+  margin: 4.5rem auto 2rem;
+  max-width: 1180px;
+  padding: 0 1rem;
+}
+
+.bulk-transcode-titlebar {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.bulk-transcode-titlebar h1 {
+  font-size: 1.8rem;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.bulk-transcode-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 1.1rem 0;
+}
+
+.bulk-transcode-section h2 {
+  font-size: 1rem;
+  letter-spacing: 0;
+  margin: 0 0 0.85rem;
+  text-transform: uppercase;
+}
+
+.bulk-transcode-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.bulk-transcode-field {
+  margin-bottom: 0;
+}
+
+.bulk-transcode-field label,
+.bulk-transcode-check label {
+  font-weight: 600;
+}
+
+.bulk-transcode-check-grid {
+  display: grid;
+  gap: 0.55rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  margin-top: 0.9rem;
+}
+
+.bulk-transcode-queue-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.bulk-transcode-job-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.bulk-transcode-job {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+.bulk-transcode-job.current-plugin-job {
+  border-color: rgba(120, 170, 255, 0.52);
+}
+
+.bulk-transcode-job-main {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.bulk-transcode-job-title {
+  align-items: center;
+  display: flex;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.bulk-transcode-job-title span:last-child {
+  overflow-wrap: anywhere;
+}
+
+.bulk-transcode-subtasks {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.9rem;
+  margin-top: 0.6rem;
+}
+
+.bulk-transcode-job-error {
+  color: #ff9b9b;
+  margin-top: 0.6rem;
+  overflow-wrap: anywhere;
+}
+
+.bulk-transcode-log-output {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  min-height: 16rem;
+  resize: vertical;
+  white-space: pre;
+}
+
+.bulk-transcode-empty {
+  color: rgba(255, 255, 255, 0.68);
+  padding: 0.5rem 0;
+}
+
+@media (max-width: 640px) {
+  .bulk-transcode-titlebar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .bulk-transcode-titlebar .btn-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
