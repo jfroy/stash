@@ -1,0 +1,168 @@
+name: Bulk Transcode In-Place
+description: Bulk transcode scene video files and update the existing file records instead of creating replacement scenes.
+version: 0.1.0
+url: https://github.com/stashapp/stash
+exec:
+  - python
+  - "{pluginDir}/bulk_transcode.py"
+interface: raw
+ui:
+  javascript:
+    - bulk_transcode_ui.js
+  css:
+    - bulk_transcode_ui.css
+settings:
+  target:
+    displayName: Target Codec
+    description: "Video codec to write. Supported values are hevc and av1. Outputs use MKV when the source has embedded subtitles, otherwise MP4."
+    type: STRING
+  hardware_encoding:
+    displayName: Hardware Encoding
+    description: Use a hardware encoder when possible.
+    type: BOOLEAN
+  hardware_encoder:
+    displayName: Hardware Encoder
+    description: "auto, nvenc, qsv, vaapi, amf, videotoolbox, or a concrete ffmpeg encoder such as hevc_nvenc or av1_nvenc."
+    type: STRING
+  hardware_device:
+    displayName: Hardware Device
+    description: Optional device path for VAAPI, such as /dev/dri/renderD128.
+    type: STRING
+  hardware_fallback:
+    displayName: Hardware Fallback
+    description: Retry with a software encoder if the selected hardware encoder fails.
+    type: BOOLEAN
+  source_codec:
+    displayName: Source Codec
+    description: "Only process files with this current video codec. Use all for no codec filter."
+    type: STRING
+  source_resolution:
+    displayName: Source Resolution
+    description: "Only process files in this broad resolution bucket: all, lt1080, 1080p, or 4k."
+    type: STRING
+  scene_ids:
+    displayName: Scene IDs
+    description: Optional comma-separated scene IDs. Leave blank to process every video file.
+    type: STRING
+  dry_run:
+    displayName: Dry run
+    description: Log planned work without changing files or the database.
+    type: BOOLEAN
+  skip_if_target:
+    displayName: Skip Target Files
+    description: Skip files that already use the selected codec in the required output container. Defaults to true when unset.
+    type: BOOLEAN
+  keep_backup:
+    displayName: Keep Backups
+    description: Keep each original file beside the replacement with a .stash-transcode-backup suffix.
+    type: BOOLEAN
+  rename_sidecars:
+    displayName: Rename Sidecars
+    description: Rename matching captions and funscript files if the replacement video name requires it. Defaults to true when unset.
+    type: BOOLEAN
+  calculate_md5:
+    displayName: Calculate MD5
+    description: Calculate a new MD5 fingerprint. Defaults to true when unset; disable to remove stale MD5 fingerprints instead.
+    type: BOOLEAN
+  max_count:
+    displayName: Max Count
+    description: Maximum number of files to process. Use 0 for no limit.
+    type: NUMBER
+  ffmpeg_path:
+    displayName: FFmpeg Path
+    description: Optional ffmpeg executable path. Defaults to Stash's ffmpeg path, then ffmpeg on PATH.
+    type: STRING
+  ffprobe_path:
+    displayName: FFprobe Path
+    description: Optional ffprobe executable path. Defaults to Stash's ffprobe path, then ffprobe on PATH.
+    type: STRING
+  hevc_crf:
+    displayName: HEVC CRF
+    description: HEVC quality value. Lower is larger and higher quality.
+    type: NUMBER
+  hevc_preset:
+    displayName: HEVC Preset
+    description: x265 preset, such as medium, slow, or veryslow.
+    type: STRING
+  hevc_video_extra_args:
+    displayName: HEVC Video Extra Args
+    description: Optional additional ffmpeg video encoder arguments for HEVC output, parsed like a shell command.
+    type: STRING
+  av1_crf:
+    displayName: AV1 CRF
+    description: AV1 quality value. Lower is larger and higher quality.
+    type: NUMBER
+  av1_preset:
+    displayName: AV1 Preset
+    description: AV1 software encoder preset. For SVT-AV1, higher is faster.
+    type: STRING
+  av1_video_extra_args:
+    displayName: AV1 Video Extra Args
+    description: Optional additional ffmpeg video encoder arguments for AV1 output, parsed like a shell command.
+    type: STRING
+  audio_extra_args:
+    displayName: Audio Extra Args
+    description: Optional additional ffmpeg audio encoder arguments, parsed like a shell command.
+    type: STRING
+  target_size_percent:
+    displayName: Target Size Percent
+    description: Target output size as a percent of the original file. For example, 60 targets 60% of the original size. Use 0 to disable bitrate targeting.
+    type: NUMBER
+  require_smaller_output:
+    displayName: Require Smaller Output
+    description: Discard the temporary transcode and leave the original file unchanged if the output is not smaller.
+    type: BOOLEAN
+  extra_output_args:
+    displayName: Extra Output Args
+    description: Optional additional ffmpeg output arguments parsed like a shell command.
+    type: STRING
+  generated_strategy:
+    displayName: Generated Files
+    description: "migrate renames hash-keyed generated files, regenerate deletes stale files and queues Stash generation, none leaves them alone."
+    type: STRING
+  generated_previews:
+    displayName: Generated Previews
+    description: Handle generated MP4/WebP previews.
+    type: BOOLEAN
+  generated_sprites:
+    displayName: Generated Sprites
+    description: Handle generated sprite image and VTT files.
+    type: BOOLEAN
+  generated_transcodes:
+    displayName: Generated Transcodes
+    description: Handle generated streaming transcodes.
+    type: BOOLEAN
+  force_generated_transcodes:
+    displayName: Force Generated Transcodes
+    description: When regenerating, force Stash to create transcodes even if it thinks they are not required.
+    type: BOOLEAN
+tasks:
+  - name: Bulk transcode videos
+    description: Transcode matching video files, swap the media in place, and update the existing file rows.
+    defaultArgs:
+      target: hevc
+      hardware_encoding: "true"
+      hardware_encoder: auto
+      hardware_fallback: "true"
+      source_codec: all
+      source_resolution: all
+      dry_run: "false"
+      skip_if_target: "true"
+      keep_backup: "false"
+      rename_sidecars: "true"
+      calculate_md5: "true"
+      max_count: "0"
+      hevc_crf: "28"
+      hevc_preset: medium
+      hevc_video_extra_args: ""
+      av1_crf: "32"
+      av1_preset: "8"
+      av1_video_extra_args: ""
+      audio_extra_args: ""
+      target_size_percent: "60"
+      require_smaller_output: "true"
+      generated_strategy: migrate
+      generated_previews: "true"
+      generated_sprites: "true"
+      generated_transcodes: "true"
+      force_generated_transcodes: "false"
